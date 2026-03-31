@@ -31,25 +31,25 @@ Reactive programming is a programming paradigm that focuses on responding to and
 ## Reactive vs Imperative
 
 ### Immutable vs Mutable
-| Reactive Programming                                                        | Imperative Programming                                                                                 |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Emphasizes immutability                                                     | Often uses mutable variables                                                                           |
+| Reactive Programming   | Imperative Programming |
+| -------------------------------------------- | -------------------------------------------- |
+| Emphasizes immutability | Often uses mutable variables |
 | Data is treated as unchangeable; changes result in the creation of new data | Data can be modified in-place, leading to potential issues like race conditions and unintended changes |
-| Reduces the risk of side effects and simplified concurrent access           | ---                                                                                                    |
+| Reduces the risk of side effects and simplified concurrent access | --- |
 
 ### Control Flow
-| Reactive Programming                                    | Imperative Programming                                                              |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Declarative Approach (Data-driven approach)             | Explicit step-by-step instructions                                                  |
-| Focuses on "What" to do rather than "how" to do it      | Focuses on "how" to achieve a specific task, often involving loops and conditionals |
-| Expresses operations as transformations on data streams | ---                                                                                 |
+| Reactive Programming   | Imperative Programming |
+| -------------------------------------------- | -------------------------------------------- |
+| Declarative Approach (Data-driven approach) | Explicit step-by-step instructions |
+| Focuses on "What" to do rather than "how" to do it | Focuses on "how" to achieve a specific task, often involving loops and conditionals |
+| Expresses operations as transformations on data streams | --- |
 
 ### Synchronous vs Asynchronous
-| Reactive Programming                                     | Imperative Programming                                                                             |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Well-suited for handling synchronous operations          | Typically synchronous                                                                              |
+| Reactive Programming   | Imperative Programming |
+| -------------------------------------------- | -------------------------------------------- |
+| Well-suited for handling synchronous operations | Typically synchronous |
 | Efficiently manages asynchronous events and data streams | Blocking operations can lead to performance bottlenecks in applications requiring high concurrency |
-| Enables non-blocking, event-driven processing            | ---                                                                                                |
+| Enables non-blocking, event-driven processing | --- |
 
 # Overview of Combine Framework
 Combine is an apple provided swift based framework for handling asynchronous and event-driven code in Swift
@@ -109,6 +109,8 @@ Subjects is a special type of Combine component which can act as both publisher 
 - Build-in seamless integration with SwiftUI for reactive User Interface
 
 # Publishers
+
+## Build in Publishers
 
 ### `Just` Publisher
 
@@ -262,10 +264,54 @@ defaultPublisher.sink(
     receiveValue: { print("Value: \($0)") } // Prints: Value: 0
 )
 ```
+### Fail Publisher
+
+`Fail` is a built-in publisher that immediately terminates with a specific error. It is mostly being used for testing and debugging.
+
+```
+Fail<Output, Error>
+```
 
 ### Timer Publisher
+
+Timer publisher is a combine publisher which emits the current `Date` (which is time) at regular intervals. Unlike standard publishers, it is connectable, meaning it won't start ticking until you explicitly tell it to.
+
+```swift
+// every: The time interval (in seconds) between events. Here, we are using 1.0 second
+// on: The RunLoop where time actually attaches (RunLoop.main, RunLoop.current)
+// in: The RunLoop.Mode (.default, .common, .tracking)
+Timer.publish(every: 1.0, on: .main, in: .default).autoconnect()
+// .autoconnect() to start the timer immediately when the first subscriber attaches.
+// there is another trigger .connect() to trigger the timer publisher at a specific time
+```
+
+#### The Main RunLoop (RunLoop.main)
+This is the default choice for UI-related tasks.
+- **Best for:** Updating labels, progress bars, or any UI element in SwiftUI/UIKit.
+- **Behavior:** It ensures that the `sink` or `receiveValue` block executes on the main thread, making it thread-safe for UI updates.
+- **Caveat:** If the main thread is blocked by a heavy calculation, the timer may fire late.
+
+#### The Current RunLoop (RunLoop.current)
+This refers to the RunLoop of the thread that is currently executing the code.
+
+- **Best for:** Short-lived background tasks where you are already managed on a specific thread.
+- **Behavior:** If you call this on the main thread, it is identical to `.main`. If called on a background thread, the timer will live there.
+- **Warning:** Most background threads (like those from Global Dispatch Queues) do not have a running RunLoop by default. Unless you are managing a custom `Thread` object, `RunLoop.current` on a background thread often won't fire.
+
+#### Comparison of RunLoop Modes
+
+Regardless of which RunLoop you choose, the **Mode** (`in:`) is often more important than the RunLoop itself:
+
+| Mode | Description | Use Case |
+| -------------- | -------------- | -------------- |
+| `.default` | The standard mode for most operations. | General background tasks. |
+| `.common` | A configurable group of modes. | **Recommended**. Keeps the timer firing even while the user is scrolling a List or ScrollView. |
+| `.tracking` | Used specifically during UI tracking. | Use if you only want the timer to run while the user is touching the screen. |
+
 ### Future Publisher
 ### PassthroughSubject
 ### CurrentValueSubject
 ### Deferred
 ### Operators as Publishers
+#
+
