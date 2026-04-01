@@ -357,13 +357,13 @@ Regardless of which RunLoop you choose, the **Mode** (`in:`) is often more impor
 
 In Swift's Combine framework, a Deferred publisher is a wrapper that waits for a subscriber before it creates the actual publisher you want to use.
 
-According to apple docs, `Deferred` publisher that awaits subscription before running the supplied closure to create a publisher for the new subscriber.
+According to Apple docs, `Deferred` publisher that awaits subscription before running the supplied closure to create a publisher for the new subscriber.
 
 ```swift
 struct Deferred<DeferredPublisher> where DeferredPublisher : Publisher
 ```
 
-The `Deferred` Publisher takes a closure as parameter, that closure must return a `DeferredPublisher`. It will call this closure only when a subscriber subscribes. 
+The `Deferred` Publisher takes a closure as a parameter, which must return a `DeferredPublisher`. It will call this closure only when a subscriber subscribes. 
 In this way, it defers any publisher processing until a subscriber causes downstream demand for an event.
 
 ```swift
@@ -380,9 +380,9 @@ let publisher = Deferred {
 #### When to Use It
 - **Expensive Operations:** To avoid performing heavy setup or network requests until they are actually required.
 - **Retrying:** If you use the `.retry()` operator on a `Future`, it won't work because the `Future` already has its result. Wrapping it in `Deferred` allows `.retry()` to trigger the creation of a new `Future` on failure.
-- **Dynamic Generation:** When the publisher you want to return depends on state that might change between the time you define the pipeline and the time it is actually subscribed to.
+- **Dynamic Generation:** When the publisher you want to return depends on a state that might change between the time you define the pipeline and the time it is actually subscribed to.
 
-In simple words, `Deferred` Publisher is actually a publisher wrapper which wraps a publisher inside a closure.
+In simple words, `Deferred` Publisher is actually a publisher wrapper that wraps a publisher inside a closure.
 
 ### Future Publisher
 
