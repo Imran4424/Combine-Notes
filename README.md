@@ -141,7 +141,7 @@ Just<Output, Never>
 Often used within a `.catch` block to provide a default value if a primary publisher fails.
 
 **Starting Pipeline**
-Useful for initializing a chain of publishers when you already have a value and want to apply operators like `.map` or `.flatMap`.
+Useful for initializing a chain of publishers when we already have a value and want to apply operators like `.map` or `.flatMap`.
 
 **Mocking/Testing**
 Helpful for creating placeholder data or "fake" publishers during development.
@@ -231,7 +231,7 @@ An empty publisher is a publisher that emits no values but can finish immediatel
 struct Empty<Output, Failure> where Failure : Error
 ```
 
-By default, it sends a finished completion event immediately, but you can configure it to never complete (acting as a `Never` publisher). It can be typed to represent any Output and Failure type, making it flexible.
+By default, it sends a finished completion event immediately, but we can configure it to never complete (acting as a `Never` publisher). It can be typed to represent any Output and Failure type, making it flexible.
 
 #### Common uses
 
@@ -242,7 +242,7 @@ In `flatMap` or `switch` statements, it provides a publisher when no data is ava
 To resolve an optional value scenario by providing an empty stream instead of an error or a value.
 
 **Default Value**
-When you need a publisher to return something, but nothing is actually needed.
+When we need a publisher to return something, but nothing is actually needed.
 
 ```swift
 import Combine
@@ -274,7 +274,7 @@ defaultPublisher.sink(
 ```
 ### Fail Publisher
 
-`Fail` is a built-in publisher that immediately terminates with a specific error. This is useful when you need to return an error condition early in a function that expects a publisher return type.
+`Fail` is a built-in publisher that immediately terminates with a specific error. This is useful when we need to return an error condition early in a function that expects a publisher return type.
 
 ```swift
 // Fail has both Output and Error types
@@ -319,7 +319,7 @@ func potentiallyFailingPublisher(shouldFail: Bool) -> AnyPublisher<Int, CustomEr
 
 ### Timer Publisher
 
-Timer publisher is a combine publisher which emits the current `Date` (which is time) at regular intervals. Unlike standard publishers, it is connectable, meaning it won't start ticking until you explicitly tell it to.
+Timer publisher is a combine publisher which emits the current `Date` (which is time) at regular intervals. Unlike standard publishers, it is connectable, meaning it won't start ticking until we explicitly tell it to.
 
 ```swift
 // every: The time interval (in seconds) between events. Here, we are using 1.0 seconds
@@ -339,23 +339,23 @@ This is the default choice for UI-related tasks.
 #### The Current RunLoop (RunLoop.current)
 This refers to the RunLoop of the thread that is currently executing the code.
 
-- **Best for:** Short-lived background tasks where you are already managed on a specific thread.
-- **Behavior:** If you call this on the main thread, it is identical to `.main`. If called on a background thread, the timer will live there.
-- **Warning:** Most background threads (like those from Global Dispatch Queues) do not have a running RunLoop by default. Unless you are managing a custom `Thread` object, `RunLoop.current` on a background thread often won't fire.
+- **Best for:** Short-lived background tasks where we are already managed on a specific thread.
+- **Behavior:** If we call this on the main thread, it is identical to `.main`. If called on a background thread, the timer will live there.
+- **Warning:** Most background threads (like those from Global Dispatch Queues) do not have a running RunLoop by default. Unless we are managing a custom `Thread` object, `RunLoop.current` on a background thread often won't fire.
 
 #### Comparison of RunLoop Modes
 
-Regardless of which RunLoop you choose, the **Mode** (`in:`) is often more important than the RunLoop itself:
+Regardless of which RunLoop we choose, the **Mode** (`in:`) is often more important than the RunLoop itself:
 
 | Mode | Description | Use Case |
 | -------------- | -------------- | -------------- |
 | `.default` | The standard mode for most operations. | General background tasks. |
 | `.common` | A configurable group of modes. | **Recommended**. Keeps the timer firing even while the user is scrolling a List or ScrollView. |
-| `.tracking` | Used specifically during UI tracking. | Use if you only want the timer to run while the user is touching the screen. |
+| `.tracking` | Used specifically during UI tracking. | Use if we only want the timer to run while the user is touching the screen. |
 
 ### Deferred
 
-In Swift's Combine framework, a Deferred publisher is a wrapper that waits for a subscriber before it creates the actual publisher you want to use.
+In Swift's Combine framework, a Deferred publisher is a wrapper that waits for a subscriber before it creates the actual publisher we want to use.
 
 According to Apple docs, `Deferred` publisher that awaits subscription before running the supplied closure to create a publisher for the new subscriber.
 
@@ -379,16 +379,125 @@ let publisher = Deferred {
 
 #### When to Use It
 - **Expensive Operations:** To avoid performing heavy setup or network requests until they are actually required.
-- **Retrying:** If you use the `.retry()` operator on a `Future`, it won't work because the `Future` already has its result. Wrapping it in `Deferred` allows `.retry()` to trigger the creation of a new `Future` on failure.
-- **Dynamic Generation:** When the publisher you want to return depends on a state that might change between the time you define the pipeline and the time it is actually subscribed to.
+- **Retrying:** If we use the `.retry()` operator on a `Future`, it won't work because the `Future` already has its result. Wrapping it in `Deferred` allows `.retry()` to trigger the creation of a new `Future` on failure.
+- **Dynamic Generation:** When the publisher we want to return depends on a state that might change between the time we define the pipeline and the time it is actually subscribed to.
 
 In simple words, `Deferred` Publisher is actually a publisher wrapper that wraps a publisher inside a closure.
 
 ### Future Publisher
 
+In Combine, `Future` is the publisher we use for a one-shot async result. It publishes either one value and finishes or an error. We create it with a closure that receives a `promise`, and we complete that promise with a `Result` like `.success(...)` or `.failure(...)`.
+It is effectively a wrapper for a task that will finish in the future, such as a network request or a long-running calculation.
+
 ```swift
 final class Future<Output, Failure> where Failure : Error
 ```
+
+```swift
+import Combine
+
+enum MyError: Error {
+    case failed
+}
+
+func loadName() -> Future<String, MyError> {
+    Future { promise in
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
+            let ok = true
+
+            if ok {
+                promise(.success("Ava"))
+            } else {
+                promise(.failure(.failed))
+            }
+        }
+    }
+}
+
+// Now calling it like any other publisher
+
+let cancellable = loadName()
+    .sink(
+        receiveCompletion: { print($0) },
+        receiveValue: { print($0) }
+    )
+```
+
+#### Key Characteristics
+- **One-Shot:** A `Future` publisher emits exactly one value (or one error) and then immediately finishes. It does not emit a stream of values over time.
+- **Eager Execution:** The work typically starts immediately upon creation, not when we subscribe. This is a key difference from many other publishers that are "lazy".
+- **Replays Result:** Because the work happens immediately, the result is stored. If multiple subscribers attach to the same `Future` later, they all receive the same cached result (or error) without re-triggering the work.
+- **Promise-Based:** We initialize it with a closure that takes a `Promise`. A `Promise` is just a function we call (`promise(.success(value))` or `promise(.failure(error))`) when our async work is done.
+
+#### Common Use Cases
+- **Wrapping Legacy Async Code:** It is the primary way to bridge callback-based APIs (like older networking or file I/O) into Combine pipelines.
+- **Single Network Requests:** Perfect for HTTP calls where we expect a single response (data) or an error.
+- **Expensive Calculations:** Use it to perform a heavy task on a background queue and publish the result once finished.
+
+#### Future Publisher with Deferred
+
+Using `Deferred` with a `Future` is a very common and important pattern in Swift's Combine framework. It solves the fundamental problem of **eager vs. lazy execution**.
+
+The problem is `Future` is Eager. By design, a `Future` executes its closure **immediately** upon initialization, regardless of whether anyone is actually subscribed to it yet.
+
+If a `Future` publisher is to wrap an expensive operation — like a network request or a heavy database query—it will fire off the moment we create the object. Furthermore, a `Future` caches its result. If a second subscriber attaches later, it just gets the cached result; the work is not run again.
+
+The solution is to wrap `Future` with `Deferred` to make it Lazy.
+`Deferred` is a publisher that waits for a subscriber before it creates the underlying publisher.
+By wrapping a `Future` publisher inside a `Deferred`, it guarantees two things:
+
+ 1. The work inside the `Future` will not start until someone calls `.sink` or `.assign` on it.
+ 2. Every new subscriber gets a brand new `Future`, meaning the work (like an API call) is re-executed for each subscriber, rather than returning a cached result.
+
+Here's the code example:
+
+```swift
+import Combine
+import Foundation
+
+var cancellables = Set<AnyCancellable>()
+
+// --------------------------------------------------------
+// 1. EAGER FUTURE (The Problem)
+// --------------------------------------------------------
+let eagerFuture = Future<String, Never> { promise in
+    // THIS PRINTS IMMEDIATELY, even without a subscriber!
+    print("🚀 Eager Future: Starting network request...")
+    promise(.success("Eager Data"))
+}
+
+// --------------------------------------------------------
+// 2. DEFERRED FUTURE (The Solution)
+// --------------------------------------------------------
+let lazyFuture = Deferred {
+    Future<String, Never> { promise in
+        // THIS WAITS. It only prints when someone subscribes.
+        print("⏳ Deferred Future: Starting network request...")
+        promise(.success("Lazy Data"))
+    }
+}
+
+print("--- Publishers created. No subscriptions yet. ---")
+
+// --------------------------------------------------------
+// 3. SUBSCRIBING
+// --------------------------------------------------------
+
+// Now we subscribe to the Deferred Future. 
+// THIS is what actually triggers the print statement and the work.
+lazyFuture
+    .sink { completion in
+        print("Deferred Future Finished")
+    } receiveValue: { value in
+        print("Received: \(value)")
+    }
+    .store(in: &cancellables)
+```
+
+#### When to use this pattern
+- **Network Requests:** Wrapping a legacy callback-based API request in Combine. We don't want the network call to fire when we create the view model; we want it to fire when the view actually subscribes to it.
+- **Location/Permissions:** Requesting user permissions where we want the prompt to show up only when a specific flow is triggered.
+- **Retry Logic:** If a `Future` fails, the `retry()` operator won't work properly because the `Future` just returns its cached failure. Wrapping it in a `Deferred` allows `retry()` to actually spin up a fresh `Future` and try the operation again.
 
 ### Record
 
@@ -397,4 +506,3 @@ final class Future<Output, Failure> where Failure : Error
 
 ### Operators as Publishers
 #
-
