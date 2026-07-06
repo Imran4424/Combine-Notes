@@ -64,28 +64,28 @@ Combine is an Apple-provided Swift-based framework for handling asynchronous and
 - Operators
 - Subjects
 
-### Publishers
+## Publishers
 Publisher is a source of data that emits items over time.
 
 - Initiates data streams
 - Emits data to Subscribers
 - Examples: Sensors, API endpoints, user inputs.
 
-### Subscribers
+## Subscribers
 The subscriber receives and reacts to data emitted by Publishers.
 
 - Listen to data streams
 - Processes and responds to emitted items.
 - Examples: UI components, data processors.
 
-### Operators
+## Operators
 Functions that transform, filter, or combine data streams.
 
 - Modify the data emitted by Publishers
 - Enable complex data manipulation
 - examples: map, filter, merge, combineLatest, flatMap, and so on (Higher order functions)
 
-### Subjects
+## Subjects
 
 Subjects are a special type of Combine component that can act as both publisher and subscriber.
 
@@ -108,7 +108,7 @@ Subjects are a special type of Combine component that can act as both publisher 
 - Scalability and responsiveness
 - Built-in seamless integration with SwiftUI for a reactive User Interface
 
-# Publishers
+# Publishers and Subscribers
 
 ## Build in Publishers
 
@@ -166,33 +166,6 @@ cancellable.cancel()
 
 // but it is nice to called manually when working on a project that deals with nested references
 ```
-
-#### What is AnyCancellable?
-
-`AnyCancellable` is a class that acts as a Type-erasing wrapper that conforms `Cancellable` Protocol.
-
-The primary purpose of `AnyCancellable` is to provide a way to cancel or release the subscription when it’s no longer needed. This helps prevent memory leaks and ensures that resources are deallocated properly. 
-We can store “AnyCancellable” instances in properties or collections, and when the objects holding the subscriptions are deallocated, or we manually cancel the subscription, the associated resources are released.
-
-##### Cancellable
-
-`Cancellable` is a protocol that represents an activity or action that can be canceled.
-
-`Cancellables are an important part of working with Combine, similar to how disposables are an important part of working with RxSwift.
-
-When we subscribe to a publisher, we often get an object conforming to the Cancellable protocol. This object can be used to cancel the subscription when we are no longer interested in receiving values from the publisher.
-
-By conforming to the Cancellable protocol, an object must implement a single method cancel(). Calling cancel() on a Cancellable instance will stop the publisher from sending any more values to the subscriber and will clean up any resources associated with the subscription.
-
-Point to note that `AnyCancellable` isn't a subscription. This is particularly useful for storing multiple cancellables in a single collection, such as an array or a set, without worrying about their specific types. An `AnyCancellable` instance automatically calls `cancel()` when deinitialized.
-
-#### Subscription
-
-`Subscription` is a protocol that inherits from the Cancellable protocol.
-
-A `Subscription` represents a connection between a publisher and a subscriber. When a subscriber subscribes to a publisher, the publisher provides a `Subscription` object to the subscriber. This object allows the subscriber to control the flow of data by requesting more values or canceling the subscription altogether.
-
-Since `Subscription` inherits from `Cancellable`, it also has the `cancel()` method. This means that a subscriber can cancel the subscription by calling `cancel()` on the Subscription object when it no longer needs to receive values from the publisher.
 
 ### Sequence Publisher
 
@@ -501,8 +474,129 @@ lazyFuture
 
 ### Record
 
+In Apple's Combine framework, the `Record` publisher is a publisher that allows us to record a specific sequence of values and a completion state, and then "play them back" to anyone who subscribes to it.
+
+Unlike a `PassthroughSubject` that only sends new values to active subscribers, or a `Future` that produces a single asynchronous result, `Record` holds a predetermined script of events. Every time a new subscriber attaches to it, `Record` plays the entire script from start to finish.
+
+#### How to Create a `Record` Publisher
+There are two primary ways to create a `Record` publisher in Swift.
+
+1. Using the `Recording` closure (The Builder Pattern)
+This is the most common way to build a complex sequence. We are handed a `Recording` object, and we explicitly tell it what to receive and when to finish.
+
+```swift
+import Combine
+
+var cancellables = Set<AnyCancellable>()
+
+// 1. Create the Record publisher
+let greetingPublisher = Record<String, Never> { recording in
+    recording.receive("Hello")
+    recording.receive("Combine")
+    recording.receive("Developers!")
+    recording.receive(completion: .finished)
+}
+
+print("--- Subscriber 1 ---")
+greetingPublisher
+    .sink(
+        receiveCompletion: { print("Sub 1 Completion: \($0)") },
+        receiveValue: { print("Sub 1 Received: \($0)") }
+    )
+    .store(in: &cancellables)
+
+print("--- Subscriber 2 ---")
+// Subscriber 2 gets the exact same sequence, replayed from the beginning.
+greetingPublisher
+    .sink(
+        receiveCompletion: { print("Sub 2 Completion: \($0)") },
+        receiveValue: { print("Sub 2 Received: \($0)") }
+    )
+    .store(in: &cancellables)
+```
+
+2. Initializing with Arrays
+If we already have our data in an array, we can initialize a `Record` publisher directly with the output and the desired completion state.
+
+```swift
+// Plays 1, 2, 3 and then finishes.
+let numberPublisher = Record<Int, Never>(output: [1, 2, 3], completion: .finished)
+
+// Plays a failure state immediately.
+enum MyError: Error { case testError }
+let failingPublisher = Record<Int, MyError>(output: [], completion: .failure(.testError))
+```
+
+#### When to use `Record`
+- **Unit Testing:** When writing unit tests for the combine pipelines, we often need to simulate a specific sequence of events (e.g., a user typing three letters, pausing, and typing two more, followed by an error). Instead of trying to orchestrate `async` subjects in test, we can just return a `Record` publisher that plays back that exact scenario synchronously.  
+- **Mocking API Responses:** If we want to mock a web socket or an API that delivers multiple chunks of data before closing, `Record` allows us to build a mock publisher that accurately mimics that behavior for our UI to consume.
+- **Replaying State:** If we need an object to hold a history of events and replay them identically to any new component that asks for them, `Record` handles this natively.
+
+### NotificationCenter
+#
+
+#### What is AnyCancellable?
+
+`AnyCancellable` is a class that acts as a Type-erasing wrapper that conforms `Cancellable` Protocol.
+
+The primary purpose of `AnyCancellable` is to provide a way to cancel or release the subscription when it’s no longer needed. This helps prevent memory leaks and ensures that resources are deallocated properly. 
+We can store “AnyCancellable” instances in properties or collections, and when the objects holding the subscriptions are deallocated, or we manually cancel the subscription, the associated resources are released.
+
+##### Cancellable
+
+`Cancellable` is a protocol that represents an activity or action that can be canceled.
+
+`Cancellables are an important part of working with Combine, similar to how disposables are an important part of working with RxSwift.
+
+When we subscribe to a publisher, we often get an object conforming to the Cancellable protocol. This object can be used to cancel the subscription when we are no longer interested in receiving values from the publisher.
+
+By conforming to the Cancellable protocol, an object must implement a single method cancel(). Calling cancel() on a Cancellable instance will stop the publisher from sending any more values to the subscriber and will clean up any resources associated with the subscription.
+
+Point to note that `AnyCancellable` isn't a subscription. This is particularly useful for storing multiple cancellables in a single collection, such as an array or a set, without worrying about their specific types. An `AnyCancellable` instance automatically calls `cancel()` when deinitialized.
+
+#### Why we need to store Cancellables in first place
+
+In Combine, if we don't store the subscription in cancellable then the subscription will be lost.
+
+```swift
+import Combine
+import Foundation
+
+let timerPublisher = Timber.publish(every: 1, on: .main, in: common)
+
+timerPublisher.autoconnect().sink { timestamp in
+  print("Timestamp \(timestamp)")
+}
+```
+
+but even after running the code the print will not work since we are not storing the subscription in cancellable, the subscription is getting lost immediately.
+To fix this we need to store it inside cancellable
+
+```swift
+import Combine
+import Foundation
+
+let timerPublisher = Timber.publish(every: 1, on: .main, in: common)
+
+let cancellable = timerPublisher.autoconnect().sink { timestamp in
+  print("Timestamp \(timestamp)")
+}
+```
+Now the above code will work fine
+
+#### Subscription
+
+`Subscription` is a protocol that inherits from the Cancellable protocol.
+
+A `Subscription` represents a connection between a publisher and a subscriber. When a subscriber subscribes to a publisher, the publisher provides a `Subscription` object to the subscriber. This object allows the subscriber to control the flow of data by requesting more values or canceling the subscription altogether.
+
+Since `Subscription` inherits from `Cancellable`, it also has the `cancel()` method. This means that a subscriber can cancel the subscription by calling `cancel()` on the Subscription object when it no longer needs to receive values from the publisher.
+
+# Handling Subscription Lifecycles
+
+# Operators
+### Operators as Publishers
+# Subjects
 ### PassthroughSubject
 ### CurrentValueSubject
-
-### Operators as Publishers
-#
+##
